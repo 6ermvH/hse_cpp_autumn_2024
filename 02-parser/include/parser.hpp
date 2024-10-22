@@ -23,13 +23,13 @@ class TokenParser {
   StringCallBack stringcallback_ = nullptr;
   DigitCallBack digitcallback_ = nullptr;
 
-  void HandlerToken(uint64_t num) const{
+  void HandlerToken(uint64_t num) const {
     if (digitcallback_) {
       digitcallback_(num);
     }
   }
 
-  void HandlerToken(const std::string& str) const{
+  void HandlerToken(const std::string& str) const {
     if (stringcallback_) {
       stringcallback_(str);
     }

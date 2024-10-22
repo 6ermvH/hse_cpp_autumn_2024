@@ -25,7 +25,8 @@ void TokenParser::Parse(const std::string& string) const {
   std::stringstream ss(string);
   std::string token;
   while (ss >> token) {
-    if (std::all_of(token.begin(), token.end(), [](unsigned char symbol) {
+    if ((token[0] != '0' || token.size() == 1) &&
+        std::all_of(token.begin(), token.end(), [](unsigned char symbol) {
           return std::isdigit(symbol) != 0;
         })) {
       try {
