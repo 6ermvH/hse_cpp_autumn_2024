@@ -49,7 +49,7 @@ TEST_F(ParserTest, test_many_string) {
 
 TEST_F(ParserTest, test_many_numbers) {
   ASSERT_EQ(status, 0);
-  parser.Parse("1 51512521 5215 125152152151 18446744073709551615");
+  parser.Parse("1 51512521 5215 125152152151 18446744073709551615 0");
   ASSERT_EQ(status, 0);
 
   ASSERT_EQ(nums[0], 1);
@@ -57,6 +57,7 @@ TEST_F(ParserTest, test_many_numbers) {
   ASSERT_EQ(nums[2], 5215);
   ASSERT_EQ(nums[3], 125152152151);
   ASSERT_EQ(nums[4], 18446744073709551615ull);  // 2**64 - 1
+  ASSERT_EQ(nums[5], 0);
 }
 
 TEST_F(ParserTest, test_big_numbers) {

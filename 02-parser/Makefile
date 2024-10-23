@@ -20,5 +20,6 @@ obj:
 clean:
 	rm -rf obj
 	rm -f $(TARGET)
+	rm -f $(TARGET_TEST)
 
 .PHONY: clean

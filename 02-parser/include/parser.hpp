@@ -3,12 +3,12 @@
 #include <functional>
 #include <string>
 
-using StringCallBack = std::function<void(const std::string&)>;
-using DigitCallBack = std::function<void(uint64_t)>;
-using CallBack = std::function<void()>;
-
 class TokenParser {
  public:
+  using StringCallBack = std::function<void(const std::string&)>;
+  using DigitCallBack = std::function<void(uint64_t)>;
+  using CallBack = std::function<void()>;
+
   TokenParser() = default;
 
   void SetStartCallback(CallBack function);
