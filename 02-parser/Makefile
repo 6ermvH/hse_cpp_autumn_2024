@@ -3,22 +3,29 @@ CFLAGS := -Wall -Wextra -Werror -pedantic -Iinclude
 
 TARGET := project
 TARGET_TEST := test
-OBJECTS := obj/parser.o
+LIB := lib/libparser.a
 
-$(TARGET): $(OBJECTS) obj/main.o
-	$(CC) -o $@ $^
+$(TARGET): obj/main.o $(LIB)
+	$(CC) -o $@ $< -Llib -lparser
 
-$(TARGET_TEST): $(OBJECTS) obj/test.o
-	$(CC) -o $@ $^ -lgtest_main -lgtest -lpthread
+$(TARGET_TEST): obj/test.o $(LIB)
+	$(CC) -o $@ $< -Llib -lgtest_main -lgtest -lpthread -lparser
+
+$(LIB): obj/parser.o | lib
+	ar rc $@ $^
 
 obj/%.o: src/%.cpp | obj
 	$(CC) $(CFLAGS) -c $< -o $@
+
+lib:
+	mkdir -p lib
 
 obj:
 	mkdir -p obj
 
 clean:
 	rm -rf obj
+	rm -rf lib
 	rm -f $(TARGET)
 	rm -f $(TARGET_TEST)
 
