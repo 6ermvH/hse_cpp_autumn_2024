@@ -11,9 +11,6 @@ $(TARGET): obj/main.o $(LIB)
 $(TARGET_TEST): obj/test.o $(LIB)
 	$(CC) -o $@ $< -Llib -lgtest_main -lgtest -lpthread -lparser
 
-$(LIB): obj/parser.o | lib
-	ar rc $@ $^
-
 obj/%.o: src/%.cpp | obj
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -25,7 +22,6 @@ obj:
 
 clean:
 	rm -rf obj
-	rm -rf lib
 	rm -f $(TARGET)
 	rm -f $(TARGET_TEST)
 
