@@ -1,26 +1,27 @@
+#include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 
-#include <iostream>
-
-template<
-    class Key,
-    class T,
-    class Compare = std::less<Key>,
-    class Allocator = std::allocator<std::pair<const Key, T>>
-> class TBalancedTree {
-
-  struct Node { // NODE
+template <class Key, class T, class Compare = std::less<Key>,
+          class Allocator = std::allocator<std::pair<const Key, T>>>
+class TBalancedTree {
+  struct Node {  // NODE
     using traits = std::allocator_traits<Allocator>;
 
     Allocator allocator;
     std::pair<const Key, T>* val_;
-    int64_t height;
+    int64_t height_;
     Node* left;
     Node* right;
+    Node* parent;
 
-    explicit Node(const Key& key, const T& val) : val_(allocator.allocate(1)), 
-                                                  height(1), left(nullptr), right(nullptr) {
+    explicit Node(const Key& key, const T& val)
+        : val_(allocator.allocate(1)),
+          height_(1),
+          left(nullptr),
+          right(nullptr),
+          parent(nullptr) {
       traits::construct(allocator, val_, key, val);
     }
 
@@ -28,73 +29,136 @@ template<
       traits::destroy(allocator, val_);
       allocator.deallocate(val_, 1);
     }
-  }; // END Node
-  
-  struct Iterator {
-    using iterator_category = std::input_iterator_tag;
-    using value_type = std::pair<const Key, T>;
-    using difference_type = std::ptrdiff_t;
-    using pointer = std::pair<const Key, T>*;
+  };  // END Node
+
+ public:
+  class Iterator {
+   private:
+    Node* node_;
+    const TBalancedTree& tree_;
+
     using reference = std::pair<const Key, T>&;
+    using pointer = std::pair<const Key, T>*;
+    using value_type = std::pair<const Key, T>;
+    using iterator_category = std::forward_iterator_tag;
 
-    Node* current;
-    Node* root;
+   public:
+    Iterator(Node* node, TBalancedTree& tree) : node_(node), tree_(tree) {}
+    Iterator(Node* node, const TBalancedTree& tree)
+        : node_(node), tree_(tree) {}
 
-    Iterator() : current(nullptr), root(nullptr) {}
-    Iterator(Node* node, Node* tree_root) : current(node), root(tree_root) {
-      if (current == nullptr && root != nullptr) {
-        // Find the leftmost node to start iteration
-        current = root;
-        while (current->left != nullptr) {
-          current = current->left;
-        }
-      }
+    bool operator==(const Iterator& it) const { return node_ == it.node_; }
+
+    bool operator!=(const Iterator& it) const { return node_ != it.node_; }
+
+    reference operator*() const { return *node_->val_; }
+
+    pointer operator->() const { return node_->val_; }
+
+    Iterator operator++(int) {
+      Iterator result = Iterator(node_, tree_);
+      ++(*this);
+      return result;
     }
 
-    reference operator*() const { return *(current->val_); }
-    pointer operator->() { return current->val_; }
-
     Iterator& operator++() {
-      if (current == nullptr) return *this;
-      
-      // If we have right subtree, go to the leftmost node of right subtree
-      if (current->right != nullptr) {
-        current = current->right;
-        while (current->left != nullptr) {
-          current = current->left;
-        }
-      } else {
-        // Find the first ancestor where current node is in left subtree
-        Node* parent = root;
-        Node* successor = nullptr;
-        while (parent != nullptr) {
-          if (parent->val_->first > current->val_->first) {
-            successor = parent;
-            parent = parent->left;
-          } else if (parent->val_->first < current->val_->first) {
-            parent = parent->right;
-          } else {
-            break;
-          }
-        }
-        current = successor;
+      if (!node_) {
+        return *this;
       }
+      Node* found = tree_.findBiggest(node_);
+      node_ = found;
       return *this;
     }
 
-    Iterator operator++(int) {
-      Iterator tmp = *this;
-      ++(*this);
-      return tmp;
+    Iterator operator--(int) {
+      Iterator result = Iterator(node_, tree_);
+      --(*this);
+      return result;
     }
 
-    friend bool operator==(const Iterator& a, const Iterator& b) { return a.current == b.current; }
-    friend bool operator!=(const Iterator& a, const Iterator& b) { return a.current != b.current; }
+    Iterator& operator--() {
+      if (!node_) {
+        node_ = tree_.getMaxLeaf(root_);
+        return *this;
+      }
+      Node* found = tree_.findLowest(node_);
+      node_ = found;
+      return *this;
+    }
   };
 
-public:
+  class ReverseIterator {
+   private:
+    Node* node_;
+    const TBalancedTree& tree_;
 
-  TBalancedTree() : root_(nullptr), cmp(Compare{}) {}
+    using reference = std::pair<const Key, T>&;
+    using pointer = std::pair<const Key, T>*;
+    using value_type = std::pair<const Key, T>;
+    using iterator_category = std::forward_iterator_tag;
+
+   public:
+    ReverseIterator(Node* node, const TBalancedTree& tree)
+        : node_(node), tree_(tree) {}
+    ReverseIterator(Node* node, TBalancedTree& tree)
+        : node_(node), tree_(tree) {}
+
+    bool operator==(const ReverseIterator& it) const {
+      return node_ == it.node_;
+    }
+
+    bool operator!=(const ReverseIterator& it) const {
+      return node_ != it.node_;
+    }
+
+    reference operator*() const { return *node_->val_; }
+
+    pointer operator->() const { return node_->val_; }
+
+    ReverseIterator operator--(int) {
+      ReverseIterator result = ReverseIterator(node_, tree_);
+      --(*this);
+      return result;
+    }
+
+    ReverseIterator& operator--() {
+      if (!node_) {
+        node_ = tree_.getMinLeaf(root_);
+        return *this;
+      }
+      Node* found = tree_.findBiggest(node_);
+      node_ = found;
+      return *this;
+    }
+
+    ReverseIterator operator++(int) {
+      ReverseIterator result = ReverseIterator(node_, tree_);
+      ++(*this);
+      return result;
+    }
+
+    ReverseIterator& operator++() {
+      if (!node_) {
+        return *this;
+      }
+      Node* found = tree_.findLowest(node_);
+      node_ = found;
+      return *this;
+    }
+  };
+
+  Iterator begin() const { return Iterator(getMinLeaf(root_), *this); }
+
+  Iterator end() const { return Iterator(nullptr, *this); }
+
+  ReverseIterator rbegin() const {
+    return ReverseIterator(getMaxLeaf(root_), *this);
+  }
+
+  ReverseIterator rend() const { return ReverseIterator(nullptr, *this); }
+
+ public:
+  TBalancedTree() : root_(nullptr), size_(0), cmp(Compare{}) {}
 
   ~TBalancedTree() = default;
 
@@ -104,10 +168,14 @@ public:
   }
 
   void erase(const Key& key) {
-    root_ = eraseNode(root_, key);
+    Node* node = findNode(root_, key);
+    if (node) {
+      --size_;
+      root_ = eraseNode(root_, key);
+    }
   }
 
-  T& operator[] (const Key& key) {
+  T& operator[](const Key& key) {
     Node* found = findNode(root_, key);
     if (!found) {
       insert(key, T());
@@ -116,7 +184,7 @@ public:
     return found->val_->second;
   }
 
-  T& at(const Key& key) {
+  T& at(const Key& key) const {
     Node* found = findNode(root_, key);
     if (!found) {
       throw std::out_of_range("out of bounds");
@@ -124,36 +192,92 @@ public:
     return found->val_->second;
   }
 
+  Iterator find(const Key& key) const {
+    if (!findNode(root_, key)) return Iterator(nullptr, *this);
+    return Iterator(findNode(root_, key), *this);
+  }
+
   bool contains(const Key& key) const {
     return findNode(root_, key) ? true : false;
   }
 
-  Iterator begin() {
-    return Iterator(root_, root_);
+  std::size_t size() const { return size_; }
+
+  bool empty() const { return (root_ == nullptr); }
+
+  void clear() {
+    while (root_) {
+      --size_;
+      root_ = eraseNode(root_, root_->val_->first);
+    }
   }
 
-  Iterator end() {
-    return Iterator(nullptr, root_);
-  }
-
-  std::size_t size() const {
-    return size_;
-  }
-
-private:
-
-  Node* getMinLeaf(Node* current) {
-    while (!current->left) {
+ private:
+  Node* getMinLeaf(Node* current) const {
+    if (!current) {
+      return nullptr;
+    }
+    while (current->left) {
       current = current->left;
     }
     return current;
+  }
+
+  Node* getMaxLeaf(Node* current) const {
+    if (!current) {
+      return nullptr;
+    }
+    while (current->right) {
+      current = current->right;
+    }
+    return current;
+  }
+
+  Node* findBiggest(Node* node) const {
+    if (!node) {
+      return nullptr;
+    }
+    if (node->right) {
+      return getMinLeaf(node->right);
+    } else {
+      Node* current = node;
+      while (current->parent &&
+             !cmp(current->val_->first, current->parent->val_->first)) {
+        current = current->parent;
+      }
+      Node* result = current->parent;
+      if (cmp(result->val_->first, node->val_->first)) {
+        return nullptr;
+      }
+      return result;
+    }
+  }
+
+  Node* findLowest(Node* node) const {
+    if (!node) {
+      return nullptr;
+    }
+    if (node->left) {
+      return getMaxLeaf(node->left);
+    } else {
+      Node* current = node;
+      while (current->parent &&
+             cmp(current->val_->first, current->parent->val_->first)) {
+        current = current->parent;
+      }
+      Node* result = current->parent;
+      if (!result || !cmp(result->val_->first, node->val_->first)) {
+        return nullptr;
+      }
+      return result;
+    }
   }
 
   Node* insertToNode(Node* current, const Key& key, const T& value) {
     if (!current) {
       return new Node(key, value);
     }
-    updateHeight(current);
+    updateNode(current);
     if (cmp(key, current->val_->first)) {
       current->left = insertToNode(current->left, key, value);
     } else {
@@ -166,27 +290,55 @@ private:
     if (!current) {
       return nullptr;
     }
-    updateHeight(current);
-    if (current->val_->first == key) {
-      --size_;
-      Node* right = current->right;
-      Node* left = current->left;
-      delete current;
-      Node* min = getMinLeaf(right);
-      min->left = left;
-      balance(min);
-      current = right;
-    }
+
     if (cmp(key, current->val_->first)) {
-      current->left = findNode(current->left, key);
+      current->left = eraseNode(current->left, key);
+      if (current->left) {
+        current->left->parent = current;
+      }
+    } else if (cmp(current->val_->first, key)) {
+      current->right = eraseNode(current->right, key);
+      if (current->right) {
+        current->right->parent = current;
+      }
     } else {
-      current->right = findNode(current->right, key);
+      if (!current->left) {
+        Node* temp = current->right;
+        delete current;
+        return temp;
+      }
+      if (!current->right) {
+        Node* temp = current->left;
+        delete current;
+        return temp;
+      }
+
+      Node* successor = getMinLeaf(current->right);
+
+      Node* newNode = new Node(successor->val_->first, successor->val_->second);
+      newNode->left = current->left;
+      if (current->left) {
+        current->left->parent = newNode;
+      }
+      newNode->right = current->right;
+      if (current->right) {
+        current->right->parent = newNode;
+      }
+
+      delete current;
+
+      newNode->right = eraseNode(newNode->right, successor->val_->first);
+      if (newNode->right) {
+        newNode->right->parent = newNode;
+      }
+
+      current = newNode;
     }
-    balance(current);
-    return current;
+
+    return balance(current);
   }
 
-  Node* findNode(Node* current, const Key& key) {
+  Node* findNode(Node* current, const Key& key) const {
     if (!current) {
       return nullptr;
     }
@@ -200,25 +352,40 @@ private:
     }
   }
 
-  int64_t getBF(Node* current) {
-    if (!current) 
-      return 0;
+  int64_t getBF(Node* current) const {
+    if (!current) return 0;
 
-    return (current->left ? current->left->height : 0) -
-           (current->right ? current->right->height : 0);
+    return (current->left ? current->left->height_ : 0) -
+           (current->right ? current->right->height_ : 0);
   }
 
   void updateHeight(Node* current) {
-    current->height = std::max( (current->left ? current->left->height : 0),
-                           (current->right ? current->right->height : 0) ) + 1;
+    current->height_ =
+        std::max((current->left ? current->left->height_ : 0),
+                 (current->right ? current->right->height_ : 0)) +
+        1;
+  }
+
+  void updateParent(Node* current) {
+    if (current->left) {
+      current->left->parent = current;
+    }
+    if (current->right) {
+      current->right->parent = current;
+    }
+  }
+
+  void updateNode(Node* current) {
+    updateParent(current);
+    updateHeight(current);
   }
 
   Node* rotateLeft(Node* current) {
     Node* newRoot = current->right;
     current->right = current->right->left;
     newRoot->left = current;
-    updateHeight(current);
-    updateHeight(newRoot);
+    updateNode(current);
+    updateNode(newRoot);
     return newRoot;
   }
 
@@ -226,13 +393,13 @@ private:
     Node* newRoot = current->left;
     current->left = current->left->right;
     newRoot->right = current;
-    updateHeight(current);
-    updateHeight(newRoot);
+    updateNode(current);
+    updateNode(newRoot);
     return newRoot;
   }
 
   Node* balance(Node* current) {
-    updateHeight(current);
+    updateNode(current);
     int64_t bf = getBF(current);
     if (bf > 1) {
       if (getBF(current->left) < 0) {
